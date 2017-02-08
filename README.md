@@ -1,16 +1,7 @@
 
-npm start
+React Starter Project for future use.
 
 ```
-
-npm start 
-
-```
-
-```
-
 npm install
-
+npm start 
 ```
-
-Compile
