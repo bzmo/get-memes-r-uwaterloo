@@ -1,5 +1,5 @@
 var path = require('path');
- 
+
 var config = {
   context: path.join(__dirname, 'src'),
   entry: [
@@ -17,6 +17,9 @@ var config = {
         loaders: ['babel-loader'],
       },
     ],
+  },
+  externals: {
+    fs: '{}'
   }
 };
 module.exports = config;
