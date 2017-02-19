@@ -45,7 +45,8 @@ function initCommonWords() {
                       "its", "your", "you've", "why", "whoever", "what's", "too",
                       "those", "there", "their", "some", "should", "she's", "he's",
                       "make", "it's", "isn't", "-", "did", "else", "it", "has", "not",
-                      "any", "been", "here's", "uw", "waterloo", "university", "best", "students"];
+                      "any", "been", "here's", "uw", "waterloo", "university", "best",
+                      "went", "students", "no"];
 
   addToCommonWords(commonPrepositions);
   addToCommonWords(commonPronouns);
@@ -62,11 +63,11 @@ function parseTitle(title, index) {
 
   for (let i = 0; i < words.length; i++) {
     let word = words[i].toLowerCase();
-    if (COMMON_WORDS[word]) { return; }
+    if (COMMON_WORDS[word]) { continue; }
     if (!WORDS_FREQ[index]) { WORDS_FREQ[index] = {}; }
     if (!WORDS_FREQ[index][word]) { WORDS_FREQ[index][word] = 0; }
 
-    WORDS_FREQ[index][word]++; // Incremenet the word's count
+    WORDS_FREQ[index][word]++; // Increment the word's count
   }
 }
 
@@ -89,52 +90,64 @@ function getTopMeme(titles, index) {
 }
 
 
+/* Populates WORDS_FREQ and TOP_MEMES by considering only posts between
+ *    unixTimeStart and unixTimeEnd for the index entry, using recursion
+ *    to traverse through all the necessary pages.
+ */
 
+function initWordsFreq (index, unixTimeStart, unixTimeEnd, afterAnchor) {
+  let url = (!afterAnchor) ? REDDIT_URL : REDDIT_URL + '?after=' + afterAnchor;
 
-function initWordsFreq (index, unixTime, afterAnchor) {
-  let URL = (!afterAnchor) ? REDDIT_URL : REDDIT_URL + '?after=' + afterAnchor;
-
-  fetch(URL).then( response => {
+  fetch(url).then( response => {
     response.json().then( listing => {
       let anchor = listing.data.after;
       let posts = listing.data.children;
 
-      // Visit All Posts within the page
+      // Visit all posts within our listing
       for (let i = 0; i < posts.length; i++) {
-        // Check if we past our unix time marker and stop if true
-        if (posts[i].data.created < unixTime) {
+        let creationDate = posts[i].data.created_utc;
+        let title = posts[i].data.title;
+
+        if (creationDate > unixTimeEnd) { continue; } // After end date, skip post
+        if (creationDate >= unixTimeStart && creationDate <= unixTimeEnd) {
+          parseTitle(title, index);
+        }
+        if (creationDate < unixTimeStart) { // Before start date, stop recursion
           getTopMeme(WORDS_FREQ[index], index);
           console.log(TOP_MEMES);
           console.log(WORDS_FREQ);
-
-          return afterAnchor;
+          return;
         }
 
         console.log(posts[i].data.title);
-        parseTitle(posts[i].data.title, index);
       }
 
-      initWordsFreq(index, unixTime, anchor); // Recursively call
+      initWordsFreq(index, unixTimeStart, unixTimeEnd, anchor); // Recursively call
     });
   }).catch ( err => {
     console.log(err);
   });
 }
 
+/*
+ * Populates the entries for WORDS_FREQ and TOP_MEMES by making
+ *    daysCount asynchronous calls for the last daysCount days
+ */
 function getMemesOfTheDay(daysCount) {
-  let currentTime = (+ new Date()) / 1000;
-  let afterAnchor = null;
+  let currentTime = (+ new Date()) / 1000; // Current unix time
   if (daysCount <= 0) { return; }
 
   for (let i = 0; i < daysCount; i++) {
-    afterAnchor = initWordsFreq(i, currentTime - SECS_IN_A_DAY * (i + 1), afterAnchor);
+    let unixTimeStart = currentTime - SECS_IN_A_DAY * (i + 1);
+    let unixTimeEnd = currentTime - SECS_IN_A_DAY * i;
+    initWordsFreq(i, unixTimeStart, unixTimeEnd, null);
   }
 }
 
 function main () {
-  let daysCount = 19;
+  let daysCount = 15;
 
-  // Initialize WORDS_FREQ, TOP_MEMES, ANCHORS with daysCount size
+  // Initialize WORDS_FREQ, TOP_MEMES with daysCount size
   for (let i = 0; i < daysCount; i++) {
     WORDS_FREQ.push({});
     TOP_MEMES.push({});
