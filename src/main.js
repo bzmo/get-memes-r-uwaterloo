@@ -99,10 +99,10 @@ function getTopMemes(titlesArray) {
 }
 
 /* Populates WORDS_FREQ and TOP_MEMES by considering only posts between
- *    unixTimeStart and unixTimeEnd for the index entry, using recursion
- *    to traverse through all the necessary pages.
+ *    unixTimeStart and unixTimeEnd using recursion to traverse through
+  *   all the necessary pages.
  */
-function initWordsFreq (unixTimeDay, afterAnchor, curDaysCount, daysCount) {
+function initWordsFreq (unixTimeDayStart, unixTimeDayEnd, afterAnchor, curDaysCount, daysCount) {
   let url = (!afterAnchor) ? REDDIT_URL : REDDIT_URL + '?after=' + afterAnchor;
   if (curDaysCount >= daysCount) { return; } // Exceeds target date
 
@@ -116,25 +116,35 @@ function initWordsFreq (unixTimeDay, afterAnchor, curDaysCount, daysCount) {
         let creationDate = posts[i].data.created_utc;
         let title = posts[i].data.title;
 
+        // Reddit API limits to 20 days worth of pages so it may return a random anchor
+        if (creationDate > unixTimeDayEnd) {
+          console.log(anchor);
+          getTopMemes(WORDS_FREQ);
+          console.log(TOP_MEMES);
+          console.log(WORDS_FREQ);
+          return;
+        }
+
         // Move on to the next day
-        if (creationDate < unixTimeDay) {
+        if (creationDate < unixTimeDayStart) {
           curDaysCount += 1;
-          unixTimeDay -= SECS_IN_A_DAY;
+          unixTimeDayStart -= SECS_IN_A_DAY;
+          unixTimeDayEnd -= SECS_IN_A_DAY;
         }
 
         // Exceeds our target date
         if (curDaysCount >= daysCount) {
           getTopMemes(WORDS_FREQ);
           console.log(TOP_MEMES);
-          console.log("WORDS_FREQ: " + WORDS_FREQ);
+          console.log(WORDS_FREQ);
           return;
         }
 
         parseTitle(title, curDaysCount);
-        console.log(title + ' ' + curDaysCount + ' ' + unixTimeDay + '    ' + creationDate);
+        console.log(title + ' ' + curDaysCount + ' ' + unixTimeDayEnd + '    ' + creationDate + '    ' + daysCount);
       }
 
-      initWordsFreq(unixTimeDay, anchor, curDaysCount, daysCount);
+      initWordsFreq(unixTimeDayStart, unixTimeDayEnd, anchor, curDaysCount, daysCount);
     });
   }).catch( err => {
     console.log(err);
@@ -148,11 +158,11 @@ function getMemesOfTheDay(daysCount) {
   let currentUnixTime = Math.floor((+ new Date()) / 1000);
   if (daysCount <= 0) { return; }
 
-  initWordsFreq(currentUnixTime - SECS_IN_A_DAY, null, 0, daysCount);
+  initWordsFreq(currentUnixTime - SECS_IN_A_DAY, currentUnixTime, null, 0, daysCount);
 }
 
 function main () {
-  let daysCount = 19;
+  let daysCount = 25;
 
   // Initialize WORDS_FREQ, TOP_MEMES with daysCount size
   for (let i = 0; i < daysCount; i++) {
