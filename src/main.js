@@ -38,7 +38,7 @@ function initCommonWords() {
                               "unless", "until", "when", "whether", "while", "where"];
 
   // Arbitrarily chosen common words from the subreddit
-  const otherWords = ["i'm", "can't", "don't", "dont", "haven't", "just", "am", "a", "an",
+  const otherWords = ["i'm", "can't", "doesn't", "don't", "dont", "haven't", "just", "am", "a", "an",
                       "are", "what", "how", "does", "is", "be", "it", "anyone",
                       "another", "do", "doing", "want", "instead", "these", "the",
                       "this", "getting", "get", "got", "have", "my", "all", "can",
@@ -89,63 +89,70 @@ function getTopMeme(titles, index) {
   TOP_MEMES[index] = topTitle;
 }
 
+/*
+ * Populates TOP_MEMES by calling getTopMeme on each object in titlesArray
+ */
+function getTopMemes(titlesArray) {
+  for (let i = 0; i < titlesArray.length; i++) {
+    getTopMeme(titlesArray[i], i);
+  }
+}
 
 /* Populates WORDS_FREQ and TOP_MEMES by considering only posts between
  *    unixTimeStart and unixTimeEnd for the index entry, using recursion
  *    to traverse through all the necessary pages.
  */
-
-function initWordsFreq (index, unixTimeStart, unixTimeEnd, afterAnchor) {
+function initWordsFreq (unixTimeDay, afterAnchor, curDaysCount, daysCount) {
   let url = (!afterAnchor) ? REDDIT_URL : REDDIT_URL + '?after=' + afterAnchor;
+  if (curDaysCount >= daysCount) { return; } // Exceeds target date
 
   fetch(url).then( response => {
     response.json().then( listing => {
       let anchor = listing.data.after;
       let posts = listing.data.children;
 
-      // Visit all posts within our listing
+      // Visit all posts in our listing
       for (let i = 0; i < posts.length; i++) {
         let creationDate = posts[i].data.created_utc;
         let title = posts[i].data.title;
 
-        if (creationDate > unixTimeEnd) { continue; } // After end date, skip post
-        if (creationDate >= unixTimeStart && creationDate <= unixTimeEnd) {
-          parseTitle(title, index);
+        // Move on to the next day
+        if (creationDate < unixTimeDay) {
+          curDaysCount += 1;
+          unixTimeDay -= SECS_IN_A_DAY;
         }
-        if (creationDate < unixTimeStart) { // Before start date, stop recursion
-          getTopMeme(WORDS_FREQ[index], index);
+
+        // Exceeds our target date
+        if (curDaysCount >= daysCount) {
+          getTopMemes(WORDS_FREQ);
           console.log(TOP_MEMES);
-          console.log(WORDS_FREQ);
+          console.log("WORDS_FREQ: " + WORDS_FREQ);
           return;
         }
 
-        console.log(posts[i].data.title);
+        parseTitle(title, curDaysCount);
+        console.log(title + ' ' + curDaysCount + ' ' + unixTimeDay + '    ' + creationDate);
       }
 
-      initWordsFreq(index, unixTimeStart, unixTimeEnd, anchor); // Recursively call
+      initWordsFreq(unixTimeDay, anchor, curDaysCount, daysCount);
     });
-  }).catch ( err => {
+  }).catch( err => {
     console.log(err);
   });
 }
 
 /*
- * Populates the entries for WORDS_FREQ and TOP_MEMES by making
- *    daysCount asynchronous calls for the last daysCount days
+ * Populates the entries for WORDS_FREQ and TOP_MEMES for the last daysCount days
  */
 function getMemesOfTheDay(daysCount) {
-  let currentTime = (+ new Date()) / 1000; // Current unix time
+  let currentUnixTime = Math.floor((+ new Date()) / 1000);
   if (daysCount <= 0) { return; }
 
-  for (let i = 0; i < daysCount; i++) {
-    let unixTimeStart = currentTime - SECS_IN_A_DAY * (i + 1);
-    let unixTimeEnd = currentTime - SECS_IN_A_DAY * i;
-    initWordsFreq(i, unixTimeStart, unixTimeEnd, null);
-  }
+  initWordsFreq(currentUnixTime - SECS_IN_A_DAY, null, 0, daysCount);
 }
 
 function main () {
-  let daysCount = 15;
+  let daysCount = 19;
 
   // Initialize WORDS_FREQ, TOP_MEMES with daysCount size
   for (let i = 0; i < daysCount; i++) {
